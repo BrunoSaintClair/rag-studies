@@ -1,0 +1,7 @@
+raw_data = [
+    "A luz viaja a uma incrível velocidade de quase trezentos mil quilômetros por segundo no vácuo do espaço. Ela se move tão depressa que a claridade emitida pelo Sol leva apenas cerca de oito minutos e vinte segundos para atravessar toda essa distância cósmica e finalmente alcançar o nosso planeta Terra.",
+    "A água dos rios e oceanos evapora com o calor do Sol e sobe para o céu como vapor invisível. Nas altitudes mais elevadas e frias, esse vapor se condensa em incontáveis gotículas que formam as nuvens. Quando essas gotas se juntam e ficam pesadas demais para boiar no ar, elas caem como chuva na superfície.",
+    "Durante o dia, as plantas realizam a fotossíntese para fabricar o próprio alimento. Elas capturam a luz solar, a água do solo e o gás carbônico presente no ar ao redor. Ao término desse ciclo natural benéfico, os vegetais liberam oxigênio fresco para a atmosfera, gás vital para a respiração de todos nós.",
+    "O coração humano é um músculo incansável que age como uma bomba eficiente, mantendo o sangue em constante circulação. Em uma pessoa adulta em repouso, ele bate entre 60 e 100 vezes por minuto sem pausa, transportando oxigênio e nutrientes essenciais que alimentam cada órgão e célula do corpo humano.",
+    "A Terra gira continuamente ao redor do próprio eixo em um movimento chamado rotação, que demora vinte e quatro horas para se completar. Conforme o planeta executa essa volta lenta, a metade que fica virada para o Sol experimenta o dia ensolarado, enquanto a face oposta permanece na sombra da noite.",
+]
