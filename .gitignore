@@ -1,0 +1,17 @@
+# Ambientes virtuais
+.venv/
+venv/
+ENV/
+
+# Variáveis de ambiente
+.env
+*.env
+
+# Python / Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Bancos de dados locais / embeddings
+chroma_db/
+*.chroma
