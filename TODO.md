@@ -1,4 +1,3 @@
 # To Do
 
-- Remover separação de chunks e medição de tempo e tokens do rag com Reranking
-- Implementar ferramenta que será usada para avaliar latência, consumo, etc. (langfuse? langsmith?)
+- Implementar ferramenta que será usada para avaliar latência, consumo, etc. (langfuse? langsmith?), consequentemente remover medições de consumo de tokens e latência já existentes.
