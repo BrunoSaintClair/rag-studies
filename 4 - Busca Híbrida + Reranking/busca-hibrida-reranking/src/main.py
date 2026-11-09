@@ -1,7 +1,7 @@
 # Configuração de Ambiente
 
 import os
-import time
+from typing import Any
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -65,7 +65,6 @@ compressor = CohereRerank(
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
-from output_formatter import format_output
 
 template = """
 Responda a pergunta baseado EXCLUSIVAMENTE no contexto a seguir:
@@ -82,6 +81,38 @@ llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=GEMIN
 chain = prompt | llm
 
 
+def exibir_resultado(titulo: str, pergunta: str, docs: list[Document], resposta: Any) -> None:
+    resposta_texto = getattr(resposta, "text", str(resposta)).strip()
+
+    print("\n" + "=" * 80)
+    print(f"📌 {titulo.upper()}")
+    print("=" * 80)
+
+    print("\n❓ Pergunta:")
+    print(pergunta)
+
+    print(f"\n📄 Chunks Utilizados como Contexto ({len(docs)}):")
+    if not docs:
+        print("  Nenhum chunk retornado.")
+    else:
+        for i, doc in enumerate(docs, start=1):
+            detalhes = []
+            origem = doc.metadata.get("source")
+            if origem:
+                detalhes.append(f"ID: {origem}")
+            score = doc.metadata.get("relevance_score")
+            if score is not None:
+                detalhes.append(f"Relevância: {score:.4f}")
+
+            header_info = f" ({' | '.join(detalhes)})" if detalhes else ""
+            print(f"\n  [{i}]{header_info}")
+            print(f"      Texto: {doc.page_content}")
+
+    print("\n💬 Resposta Final:")
+    print(resposta_texto)
+    print("=" * 80)
+
+
 # Execução Comparativa das 4 Abordagens de RAG
 
 if __name__ == "__main__":
@@ -90,93 +121,44 @@ if __name__ == "__main__":
         "utilizando Docker BuildKit com cache remoto inline?"
     )
 
-    print("\n" + "#" * 80)
-    print(f"❓ PERGUNTA DE TESTE:\n\"{pergunta}\"")
-    print("#" * 80)
-
-    # -------------------------------------------------------------
     # 1. Pipeline: Busca Vetorial Pura (Chroma)
-    # -------------------------------------------------------------
-    t0_retrieval_v = time.perf_counter()
     vector_docs = vector_retriever.invoke(pergunta)
-    latency_retrieval_v = time.perf_counter() - t0_retrieval_v
-
     context_v = "\n\n".join(doc.page_content for doc in vector_docs)
-    t0_llm_v = time.perf_counter()
     answer_v = chain.invoke({"context": context_v, "question": pergunta})
-    latency_llm_v = time.perf_counter() - t0_llm_v
 
-    format_output(
-        title="1. Busca Vetorial Pura (Chroma)",
-        answer=answer_v,
+    exibir_resultado(
+        titulo="1. Busca Vetorial Pura (Chroma)",
+        pergunta=pergunta,
         docs=vector_docs,
-        latencies={
-            "total": latency_retrieval_v + latency_llm_v,
-            "etapas": {
-                "Retrieval Vetorial": latency_retrieval_v,
-                "Geração LLM": latency_llm_v,
-            },
-        },
+        resposta=answer_v,
     )
 
-    # -------------------------------------------------------------
     # 2. Pipeline: Busca por Palavra Exata (BM25)
-    # -------------------------------------------------------------
-    t0_retrieval_bm = time.perf_counter()
     bm25_docs = bm25_retriever.invoke(pergunta)
-    latency_retrieval_bm = time.perf_counter() - t0_retrieval_bm
-
     context_bm = "\n\n".join(doc.page_content for doc in bm25_docs)
-    t0_llm_bm = time.perf_counter()
     answer_bm = chain.invoke({"context": context_bm, "question": pergunta})
-    latency_llm_bm = time.perf_counter() - t0_llm_bm
 
-    format_output(
-        title="2. Busca por Palavra Exata (BM25)",
-        answer=answer_bm,
+    exibir_resultado(
+        titulo="2. Busca por Palavra Exata (BM25)",
+        pergunta=pergunta,
         docs=bm25_docs,
-        latencies={
-            "total": latency_retrieval_bm + latency_llm_bm,
-            "etapas": {
-                "Retrieval BM25": latency_retrieval_bm,
-                "Geração LLM": latency_llm_bm,
-            },
-        },
+        resposta=answer_bm,
     )
 
-    # -------------------------------------------------------------
     # 3. Pipeline: Busca Híbrida (Ensemble: Vetorial + BM25)
-    # -------------------------------------------------------------
-    t0_retrieval_h = time.perf_counter()
     hybrid_docs = hybrid_retriever.invoke(pergunta)
-    latency_retrieval_h = time.perf_counter() - t0_retrieval_h
-
     context_h = "\n\n".join(doc.page_content for doc in hybrid_docs)
-    t0_llm_h = time.perf_counter()
     answer_h = chain.invoke({"context": context_h, "question": pergunta})
-    latency_llm_h = time.perf_counter() - t0_llm_h
 
-    format_output(
-        title="3. Busca Híbrida (Ensemble: Vetorial + BM25)",
-        answer=answer_h,
+    exibir_resultado(
+        titulo="3. Busca Híbrida (Ensemble: Vetorial + BM25)",
+        pergunta=pergunta,
         docs=hybrid_docs,
-        latencies={
-            "total": latency_retrieval_h + latency_llm_h,
-            "etapas": {
-                "Retrieval Híbrido (Ensemble)": latency_retrieval_h,
-                "Geração LLM": latency_llm_h,
-            },
-        },
+        resposta=answer_h,
     )
 
-    # -------------------------------------------------------------
     # 4. Pipeline: Busca Híbrida + Reranking (Cohere)
-    # -------------------------------------------------------------
-    t0_retrieval_hr = time.perf_counter()
     initial_hybrid_docs = hybrid_retriever.invoke(pergunta)
-    latency_retrieval_hr = time.perf_counter() - t0_retrieval_hr
-
-    t0_rerank = time.perf_counter()
     raw_reranked_docs = compressor.compress_documents(
         documents=initial_hybrid_docs,
         query=pergunta
@@ -185,27 +167,12 @@ if __name__ == "__main__":
         doc for doc in raw_reranked_docs
         if (doc.metadata.get("relevance_score") or 0.0) >= SCORE_THRESHOLD
     ]
-    latency_rerank = time.perf_counter() - t0_rerank
-
     context_hr = "\n\n".join(doc.page_content for doc in final_reranked_docs)
-    t0_llm_hr = time.perf_counter()
     answer_hr = chain.invoke({"context": context_hr, "question": pergunta})
-    latency_llm_hr = time.perf_counter() - t0_llm_hr
 
-    total_latency_hr = latency_retrieval_hr + latency_rerank + latency_llm_hr
-
-    format_output(
-        title="4. Busca Híbrida + Reranking (Cohere)",
-        answer=answer_hr,
+    exibir_resultado(
+        titulo="4. Busca Híbrida + Reranking (Cohere)",
+        pergunta=pergunta,
         docs=final_reranked_docs,
-        latencies={
-            "total": total_latency_hr,
-            "etapas": {
-                "Retrieval Híbrido (Ensemble)": latency_retrieval_hr,
-                "Reranking (Cohere)": latency_rerank,
-                "Geração LLM": latency_llm_hr,
-            },
-        },
+        resposta=answer_hr,
     )
-
-    print("\n" + "#" * 80 + "\n")

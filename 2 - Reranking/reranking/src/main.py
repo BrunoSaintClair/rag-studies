@@ -1,7 +1,9 @@
 # Configuração de Ambiente
 
 import os
+from typing import Any
 from dotenv import load_dotenv
+from langchain_core.documents import Document
 
 load_dotenv()
 
@@ -14,10 +16,10 @@ COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
-from data import raw_data # Arquivo auxiliar contendo os textos usados nas buscas
+from data import raw_data  # Arquivo auxiliar contendo os textos usados nas buscas
 
 
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=50) # Os textos que temos seriam mais ou menos o tamanho de um chunk gerado a partir de um processamento, então, para não prejudicarmos muito a qualidade do resultado, vamos deixar o tamanho dos chunks maior que os dos textos em si, para salvarmos eles inteiros.
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=50)  # Os textos que temos seriam mais ou menos o tamanho de um chunk gerado a partir de um processamento, então, para não prejudicarmos muito a qualidade do resultado, vamos deixar o tamanho dos chunks maior que os dos textos em si, para salvarmos eles inteiros.
 
 splits = text_splitter.create_documents(raw_data)
 
@@ -45,30 +47,10 @@ rerank_retriever = ContextualCompressionRetriever(
 )
 
 
-# Realiza busca, rankeamento dos dados e coleta de dados temporais para análise
+# Geração das respostas
 
-import time
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
-
-question = "Como alimentar e cuidar de uma python em cativeiro?"
-
-# --- Pipeline Sem Rankeamento ---
-t0_retrieval = time.perf_counter()
-without_rerank_docs = base_retriever.invoke(question)
-latency_retrieval = time.perf_counter() - t0_retrieval
-
-# --- Pipeline Com Rankeamento  ---
-t0_rerank = time.perf_counter()
-raw_reranked_docs = compressor.compress_documents(documents=without_rerank_docs, query=question)
-reranked_docs = [
-    doc for doc in raw_reranked_docs
-    if (doc.metadata.get("relevance_score") or 0.0) >= SCORE_THRESHOLD
-]
-latency_rerank = time.perf_counter() - t0_rerank
-
-
-# Geração das respostas
 
 template = """
 Responda a pergunta baseado EXCLUSIVAMENTE no contexto a seguir:
@@ -81,55 +63,69 @@ Pergunta:
 """
 
 prompt = ChatPromptTemplate.from_template(template=template)
-
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=GEMINI_API_KEY)
-
 chain = prompt | llm
 
-context_text_without_ranking = "\n\n".join(doc.page_content for doc in without_rerank_docs)
-context_text_with_ranking = "\n\n".join(doc.page_content for doc in reranked_docs)
 
-# Se quisesse apenas gerar as respostas, bastava fazer aqui algo como `answer_= chain.invoke({"context": context, "question": question})`
-# O excesso de código escrito abaixo foi escrito para permitir uma análise de tempo e tokens gastos, além de uma bela formatação visual
+def exibir_resultado(titulo: str, pergunta: str, docs: list[Document], resposta: Any) -> None:
+    resposta_texto = getattr(resposta, "text", str(resposta)).strip()
+
+    print("\n" + "=" * 80)
+    print(f"📌 {titulo.upper()}")
+    print("=" * 80)
+
+    print("\n❓ Pergunta:")
+    print(pergunta)
+
+    print(f"\n📄 Chunks Utilizados como Contexto ({len(docs)}):")
+    if not docs:
+        print("  Nenhum chunk retornado.")
+    else:
+        for i, doc in enumerate(docs, start=1):
+            detalhes = []
+            origem = doc.metadata.get("source")
+            if origem:
+                detalhes.append(f"ID: {origem}")
+            score = doc.metadata.get("relevance_score")
+            if score is not None:
+                detalhes.append(f"Relevância: {score:.4f}")
+
+            header_info = f" ({' | '.join(detalhes)})" if detalhes else ""
+            print(f"\n  [{i}]{header_info}")
+            print(f"      Texto: {doc.page_content}")
+
+    print("\n💬 Resposta Final:")
+    print(resposta_texto)
+    print("=" * 80)
 
 
-# LLM Generation 1 (Sem rankeamento)
-t0_llm_1 = time.perf_counter()
-answer_1 = chain.invoke({"context": context_text_without_ranking, "question": question})
-latency_llm_1 = time.perf_counter() - t0_llm_1
-total_latency_1 = latency_retrieval + latency_llm_1
+if __name__ == "__main__":
+    question = "Como alimentar e cuidar de uma python em cativeiro?"
 
-# LLM Generation 2 (Com rankeamento)
-t0_llm_2 = time.perf_counter()
-answer_2 = chain.invoke({"context": context_text_with_ranking, "question": question})
-latency_llm_2 = time.perf_counter() - t0_llm_2
-total_latency_2 = latency_retrieval + latency_rerank + latency_llm_2
+    # --- Pipeline Sem Rankeamento ---
+    without_rerank_docs = base_retriever.invoke(question)
+    context_text_without_ranking = "\n\n".join(doc.page_content for doc in without_rerank_docs)
+    answer_1 = chain.invoke({"context": context_text_without_ranking, "question": question})
 
-from output_formatter import format_output
+    exibir_resultado(
+        titulo="Sem Rankeamento",
+        pergunta=question,
+        docs=without_rerank_docs,
+        resposta=answer_1,
+    )
 
-format_output(
-    "Sem Rankeamento",
-    answer_1,
-    len(without_rerank_docs),
-    {
-        "total": total_latency_1,
-        "etapas": {
-            "Retrieval (Vetorial)": latency_retrieval,
-            "Geração LLM": latency_llm_1,
-        },
-    },
-)
+    # --- Pipeline Com Rankeamento ---
+    raw_reranked_docs = compressor.compress_documents(documents=without_rerank_docs, query=question)
+    reranked_docs = [
+        doc for doc in raw_reranked_docs
+        if (doc.metadata.get("relevance_score") or 0.0) >= SCORE_THRESHOLD
+    ]
+    context_text_with_ranking = "\n\n".join(doc.page_content for doc in reranked_docs)
+    answer_2 = chain.invoke({"context": context_text_with_ranking, "question": question})
 
-format_output(
-    "Com Rankeamento",
-    answer_2,
-    len(reranked_docs),
-    {
-        "total": total_latency_2,
-        "etapas": {
-            "Retrieval (Vetorial)": latency_retrieval,
-            "Reranking (Cohere)": latency_rerank,
-            "Geração LLM": latency_llm_2,
-        },
-    },
-)
+    exibir_resultado(
+        titulo="Com Rankeamento",
+        pergunta=question,
+        docs=reranked_docs,
+        resposta=answer_2,
+    )

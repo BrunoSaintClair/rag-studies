@@ -1,6 +1,7 @@
 # Configuração de Ambiente
 
 import os
+from typing import Any
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,7 +13,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 from langchain_core.documents import Document
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
-from data import chunks # Arquivo auxiliar contendo os textos usados nas buscas
+from data import chunks  # Arquivo auxiliar contendo os textos usados nas buscas
 
 
 documents = [Document(page_content=chunk, metadata={"source": f"chunk_{i}"}) for i, chunk in enumerate(chunks)]
@@ -22,13 +23,13 @@ vector_store = Chroma.from_documents(documents=documents, embedding=embedding_mo
 vector_retriever = vector_store.as_retriever(search_kwargs={"k": 2})
 
 
-# Implementando Retriver de Busca por Palavra Exata
-from langchain_community.retrievers import BM25Retriever 
+# Implementando Retriever de Busca por Palavra Exata
+from langchain_community.retrievers import BM25Retriever
 
 bm25_retriever = BM25Retriever.from_documents(documents=documents, k=2)
 
 
-# Implementando Retriver de Busca Híbrida
+# Implementando Retriever de Busca Híbrida
 from langchain_classic.retrievers import EnsembleRetriever
 
 hybrid_search_retriever = EnsembleRetriever(
@@ -52,35 +53,44 @@ Pergunta:
 """
 
 prompt = ChatPromptTemplate.from_template(template=template)
-
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=GEMINI_API_KEY)
-
 chain = prompt | llm
 
 
-# Testes dos Retrievers e Geração com IA
-def exibir_resultados(nome_retriever: str, resposta: str, docs: list[Document]) -> None:
-    print(f"\n{'=' * 75}")
-    print(f"🔹 {nome_retriever}")
-    print(f"{'=' * 75}")
-    print("\n💬 Resposta da IA:")
-    print(resposta.strip())
-    print("\n📄 Chunks Utilizados como Contexto:")
+def exibir_resultado(titulo: str, pergunta: str, docs: list[Document], resposta: Any) -> None:
+    resposta_texto = getattr(resposta, "text", str(resposta)).strip()
+
+    print("\n" + "=" * 80)
+    print(f"📌 {titulo.upper()}")
+    print("=" * 80)
+
+    print("\n❓ Pergunta:")
+    print(pergunta)
+
+    print(f"\n📄 Chunks Utilizados como Contexto ({len(docs)}):")
     if not docs:
         print("  Nenhum chunk retornado.")
     else:
         for i, doc in enumerate(docs, start=1):
-            origem = doc.metadata.get("source", "N/A")
-            print(f"\n  [{i}] ID: {origem}")
+            detalhes = []
+            origem = doc.metadata.get("source")
+            if origem:
+                detalhes.append(f"ID: {origem}")
+            score = doc.metadata.get("relevance_score")
+            if score is not None:
+                detalhes.append(f"Relevância: {score:.4f}")
+
+            header_info = f" ({' | '.join(detalhes)})" if detalhes else ""
+            print(f"\n  [{i}]{header_info}")
             print(f"      Texto: {doc.page_content}")
+
+    print("\n💬 Resposta Final:")
+    print(resposta_texto)
+    print("=" * 80)
 
 
 if __name__ == "__main__":
     pergunta = "Como resolver a lentidão e saturação de requisições em microsserviços web e qual biblioteca Java pode ser empregada?"
-
-    print("\n" + "#" * 75)
-    print(f"❓ Pergunta de Teste: \"{pergunta}\"")
-    print("#" * 75)
 
     retrievers = {
         "Busca Vetorial (Chroma)": vector_retriever,
@@ -92,7 +102,9 @@ if __name__ == "__main__":
         docs = retriever.invoke(pergunta)
         context_text = "\n\n".join(doc.page_content for doc in docs)
         answer = chain.invoke({"context": context_text, "question": pergunta})
-        exibir_resultados(nome, answer.text, docs)
-
-    print("\n" + "#" * 75 + "\n")
-
+        exibir_resultado(
+            titulo=nome,
+            pergunta=pergunta,
+            docs=docs,
+            resposta=answer,
+        )
