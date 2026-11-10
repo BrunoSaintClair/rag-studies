@@ -1,0 +1,14 @@
+[project]
+name = "self-querying"
+version = "1.0.0"
+description = "Implementação de RAG com Self Querying (Busca Semântica filtrada por Metadados)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=1.4.9",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.2",
+    "langchain-google-genai>=4.4.3",
+    "lark>=1.1.9",
+    "python-dotenv>=1.2.4",
+]
