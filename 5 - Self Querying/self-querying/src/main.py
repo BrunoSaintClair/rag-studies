@@ -66,7 +66,7 @@ class CustomChromaTranslator(ChromaTranslator):
         }
 
 
-# Especificação dos metadados para que o LLM compreenda o esquema disponível
+# Especificação dos metadados para que o LLM compreenda o Schema
 metadata_field_info = [
     AttributeInfo(
         name="titulo",
@@ -160,15 +160,13 @@ def formatar_contexto(docs: list[Document]) -> str:
     return "\n\n---\n\n".join(blocos)
 
 
-# Execução Comparativa das Abordagens de RAG
-
 if __name__ == "__main__":
     pergunta = (
         "Recomende artigos avançados sobre otimização e caching em Kubernetes "
         "publicados a partir de 2023, gratuitos e com avaliação superior a 4.7."
     )
 
-    # 1. Pipeline: Busca Vetorial Pura (Baseline)
+    # 1. Pipeline: Busca Vetorial
     # Recupera os textos mais próximos no espaço semântico, ignorando restrições lógicas e de metadados
     vector_docs = vector_retriever.invoke(pergunta)
     context_v = formatar_contexto(vector_docs)
