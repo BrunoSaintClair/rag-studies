@@ -11,3 +11,6 @@ Implementar RAG de maneiras distintas visando aprender sobre os trade-offs de ca
 [4. Busca Híbrida + Reranking](./4%20-%20Busca%20H%C3%ADbrida%20%2B%20Reranking)
 
 [5. Self Querying](./5%20-%20Self%20Querying)
+
+[6. Parent Document Retriever](./6%20-%20Parent%20Document%20Retriever)
+
