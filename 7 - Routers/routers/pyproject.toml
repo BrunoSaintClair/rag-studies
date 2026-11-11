@@ -1,0 +1,14 @@
+[project]
+name = "routers"
+version = "1.0.0"
+description = "Implementação comparativa de Roteamento de Queries (Semantic Router vs LLM Router com Structured Output)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=1.4.9",
+    "langchain-core>=1.4.0",
+    "langchain-google-genai>=4.4.3",
+    "numpy>=1.26.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.2.4",
+]

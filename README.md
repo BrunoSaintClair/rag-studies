@@ -14,3 +14,4 @@ Implementar RAG de maneiras distintas visando aprender sobre os trade-offs de ca
 
 [6. Parent Document Retriever](./6%20-%20Parent%20Document%20Retriever)
 
+[7. Routers (Semantic e LLM Router)](./7%20-%20Routers)
